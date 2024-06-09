@@ -1,9 +1,4 @@
-import pandas as pd
 import re
-
-# Load the CSV file
-file_path = '/Users/wesleyhuang/Desktop/NYCU/AI/cleaned_train.csv'
-data = pd.read_csv(file_path)
 
 # 3-a | AVERAGE WORD LENGTH
 def avg_word_len(txt):
@@ -32,7 +27,7 @@ def avg_sent_len(txt):
         // return //
             eval - <float> - the average length of sentences
     '''
-    sentences = re.split(r'[.!?]', txt)
+    sentences = re.split(r'[.!?。？！]', txt)
     sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
     if not sentences:
         return 0
@@ -40,15 +35,4 @@ def avg_sent_len(txt):
     avg_length = total_words / len(sentences)
     return avg_length
 
-# Apply the functions to the dataframe
-data['avg_word_len'] = data['text'].apply(avg_word_len)
-data['avg_sent_len'] = data['text'].apply(avg_sent_len)
 
-# Group by 'labels' and calculate the mean for each group
-grouped_data = data.groupby('labels').agg({
-    'avg_word_len': 'mean',
-    'avg_sent_len': 'mean'
-}).reset_index()
-
-# Display the grouped data
-print(grouped_data)
