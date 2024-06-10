@@ -10,7 +10,7 @@ import pickle
 from pathlib import Path
 import matplotlib
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
 
@@ -188,7 +188,10 @@ def bagging(algorithm, size = 10, ratio = 0.63, features = list(range(62))):
         feature_sampled = [train_feature[x] for x in index]
         tag_sampled = [train_tag[x] for x in index]
         
-        clf = algorithm()
+        if algorithm == LinearSVC:
+            clf = LinearSVC(multi_class = "ovr")
+        else:
+            clf = algorithm()
         clf.fit(feature_sampled, tag_sampled)
         classifiers.append(clf)
     
@@ -331,7 +334,7 @@ def main(new_split = False, remodel = True, scoring = True):
         // return //
             this function does not return anything
     '''
-    clfs = [QuadraticDiscriminantAnalysis, DecisionTreeClassifier, SVC]
+    clfs = [QuadraticDiscriminantAnalysis, DecisionTreeClassifier, LinearSVC]
     features = list(range(20, 62))
     size = 10
     
@@ -383,4 +386,4 @@ def main(new_split = False, remodel = True, scoring = True):
     user_test("Hello everybody my name is Markiplier and today we're gonna play an indie horror game called Five Nights at Freddy's", clfs, features)
     
     
-main(remodel = False, scoring = False)
+main()
