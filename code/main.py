@@ -1,20 +1,29 @@
 import numpy as np
 import pandas as pd
+import re
 import dask
 import dask.diagnostics
 import dask.diagnostics.progress
 import random
 from statistics import multimode
 import pickle
+from pathlib import Path
 import matplotlib
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
 
 import eval_dict
 import eval_stat
 import eval_info
 from utils import LOOKUP
+
+cwd = Path.cwd()
+path = Path(__file__).parent
+clfpath = (path / "../classifiers/").resolve()
+
+## The comments describe the training process
 
 # PART A // DATASET SPLITTING
 #   In data analysis, it it best to have a evaluation for our trained model. This is most commonly
@@ -146,13 +155,14 @@ def feature_table():
 #   Bootstrap Aggregating tries to lower the overfitting issue and increase the prediction accuracy.
 #   It works by sampling the same dataset many times, training multiple "weak" classifier, then
 #   compare the results (e.g. majority) of these to form a "strong" classifier.
-def bagging(algorithm, size = 10, ratio = 0.63):
+def bagging(algorithm, size = 10, ratio = 0.63, features = list(range(62))):
     '''
     ## Training the model by using bagging technique and various algorithms
         // arguments //
             algorithm - <sklearn.classifier> - the classification model\n
             size - <int> - the number of weak classifier, default 10\n
             ratio - <float> - the sample proportion, default 0.63
+            features - <list> - 
         // return
             this function does not return anything
     '''
@@ -163,12 +173,16 @@ def bagging(algorithm, size = 10, ratio = 0.63):
         test = pickle.load(file)
     
     # train model
-    train_feature = train[0]
+    train_feature = list(train[0])
     train_tag = train[1]
+    
+    # take specific features for training
+    for n in range(len(train_feature)):
+        train_feature[n] = [train_feature[n][x] for x in features]
     
     classifiers = []    # store classifiers for later bagging
     for n in range(size):
-        print("Bag {}/{}".format(n + 1, size))
+        print("Training Bag {}/{}".format(n + 1, size))
         # sample the training set (again)
         index = random.sample(range(len(train_feature)), round(len(train_feature) * ratio))
         feature_sampled = [train_feature[x] for x in index]
@@ -179,16 +193,24 @@ def bagging(algorithm, size = 10, ratio = 0.63):
         classifiers.append(clf)
     
     # export classifiers
-    with open("clf", "wb") as file:
+    with open((clfpath / algorithm.__name__).resolve(), "wb") as file:
         pickle.dump(classifiers, file)
-        
+
 # PART F // ACCURACY
 #   After training the model, we should test its accuracy. Since we're using bagging, we take the majority.
-def accuracy():
+def accuracy(algorithm, features = list(range(62))):
     '''
+    ## Test the accuracy of the given model. This also returns the prediction results of bagging.
+    It computes both training set and test set, and single and combined classifiers.
+        // argument //
+            algorithm - <sklearn.classifier> - the classification model
+            
+        // returns //
+            new_predict_train - <list> - a list of predicted training set tags
+            new_predict_tag - <list> - a list of predicted test set tags
     '''
     # import model
-    with open("clf", "rb") as file:
+    with open((clfpath / algorithm.__name__).resolve(), "rb") as file:
         model = pickle.load(file)
 
     # import feature table
@@ -197,10 +219,16 @@ def accuracy():
     with open("feat_test", "rb") as file:
         test = pickle.load(file)
         
-    train_feature = train[0]
+    train_feature = list(train[0])
     train_tag = train[1]
-    test_feature = test[0]
+    test_feature = list(test[0])
     test_tag = test[1]
+    
+    # take specific features
+    for n in range(len(train_feature)):
+        train_feature[n] = [train_feature[n][x] for x in features]
+    for n in range(len(test_feature)):
+        test_feature[n] = [test_feature[n][x] for x in features]
     
     # check the accuracy of single classifiers
     predict_train = []
@@ -224,32 +252,89 @@ def accuracy():
             new_predict_test = []
             for x in range(len(predict_train[0])):
                 majority = multimode([clf[x] for clf in predict_train])
-                new_predict_train.append(random.sample(majority, 1))
+                new_predict_train.append(random.sample(majority, 1)[0])
             for x in range(len(predict_test[0])):
                 majority = multimode([clf[x] for clf in predict_test])
-                new_predict_test.append(random.sample(majority, 1))
+                new_predict_test.append(random.sample(majority, 1)[0])
                 
             acc_train = round(accuracy_score(train_tag, new_predict_train), 6)
             acc_test = round(accuracy_score(test_tag, new_predict_test), 6)
             print("Take {} classifiers: Train Accuracy = {}, Test Accuracy = {}".format(i, acc_train, acc_test))
-                
-                
+    
+    return new_predict_train, new_predict_test
 
+# PART G // VOTING
+#   This way it work is by a majority vote as well. But unlike bagging, voting takes the results
+#   from -different- classifiers, which may give us a different outcome
+def voting(predict_table, true_table):
+    '''
+    ## Perform a voting classifier and check the accuracy
+        // argument //
+            predict_table - [list, list, ...] - list of predictions from different classifiers
+            true_table - <list> - list of actual tags of the sample
+            
+        // return //
+            acc - <float> - the accuracy of this classifier
+    '''
+    prediction = []
+    for n in range(len(predict_table[0])):
+        majority = multimode([x[n] for x in predict_table])
+        prediction.append(random.sample(majority, 1)[0])
+    
+    acc = round(accuracy_score(true_table, prediction), 6)
+    return acc
+
+# PART H // USER TESTING
+#   This is the ultimate goal of our project: Detect the language of any user input
+def user_test(txt, clfs, features = list(range(62))):
+    '''
+    '''
+    # text preprocess
+    txt = re.sub(r'(?<!\.$)[^\w\s.!?。？！]', '', txt)
+    txt = re.sub(r'(?<!\.$)[\d]', '', txt)
+    txt = re.sub(r'\s+', ' ', txt).strip()
+    
+    # build feature table
+    feature = build_features(txt)
+    feature = [feature[x] for x in features]
+    
+    # perform prediction
+    model_predict = []
+    for clf in clfs:
+        # import model
+        with open((clfpath / clf.__name__).resolve(), "rb") as file:
+            model = pickle.load(file)
         
+        predict_list = []
+        for n in model:
+            predict_list.append(n.predict([feature])[0])
+        
+        model_predict.append(random.sample(multimode(predict_list), 1)[0])
+    
+    vote_predict = random.sample(multimode(model_predict), 1)[0]
+    print("Language: {}".format(LOOKUP[vote_predict]))
+        
+    
     
 
 ###################################################################
 ###################################################################
 
-def main(new_split = False):
+def main(new_split = False, remodel = True, scoring = True):
     '''
-    ## Runs the program.
+    ## Run the program.
         // argument //
-            new_split - <bool> - Make a new train-test set. This will recalculate the feature table and take a lot of time (I mean a lot).
+            new_split - <bool> - Make a new train-test set. (est. 7 hours)\n
+            remodel - <bool> - Rebuild the bagging model. (est. 8 mins)\n
+            scoring - <bool> - Compute the accuracy score. (est. 30 mins)
             
         // return //
             this function does not return anything
     '''
+    clfs = [QuadraticDiscriminantAnalysis, DecisionTreeClassifier, SVC]
+    features = list(range(20, 62))
+    size = 10
+    
     if new_split:
         print("Splitting test-train set...")
         split_data("cleaned_train.csv")
@@ -264,8 +349,38 @@ def main(new_split = False):
         print("###############")
         feature_table()
     
-    print("Training the classifier...")
-    bagging(SVC, 10)
-    accuracy()
-
-main(new_split=False)
+    
+    train_predict_table = []
+    test_predict_table = []
+    
+    if remodel:
+        print("\n## Model will be trained with {} features and {} algorithms (Bag size: {}) ##".format(len(features), len(clfs), size))
+        print("Training the classifier...")
+        for clf in clfs:
+            print("Algorithm: {}".format(clf.__name__))
+            bagging(clf, size, features=features)
+            print("\n")
+    
+    if scoring:
+        print("Testing the model...")
+        for clf in clfs:
+            print("\n-[Algorithm: {}]-".format(clf.__name__))
+            train, test = accuracy(clf, features=features)
+            train_predict_table.append(train)
+            test_predict_table.append(test)
+    
+        # prepare for voting
+        print("\n-[Performing Voting Technique with {} Bagged Classifiers]-".format(len(clfs)))
+        with open("feat_train", "rb") as file:
+            train_tag = pickle.load(file)[1]
+        with open("feat_test", "rb") as file:
+            test_tag = pickle.load(file)[1]
+        
+        acc_train = voting(train_predict_table, train_tag)
+        acc_test = voting(test_predict_table, test_tag)
+        print("Train Accuracy: {}, Test Accuracy: {}".format(acc_train, acc_test))
+    
+    user_test("Hello everybody my name is Markiplier and today we're gonna play an indie horror game called Five Nights at Freddy's", clfs, features)
+    
+    
+main(remodel = False, scoring = False)
