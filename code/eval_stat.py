@@ -189,9 +189,11 @@ def char_freq_corr(txt, table):
         # compute correlation
         xpos = [x[1] for x in reference_rank]
         ypos = [y[1] for y in sample_rank]
-        xmean = sum(xpos) / len(xpos)
-        ymean = sum(ypos) / len(ypos)
-        cor = np.sum((xpos - xmean) * (ypos - ymean)) / np.sqrt(np.sum((xpos - xmean) ** 2) * np.sum((ypos - ymean) ** 2))
+        xmean = sum(xpos) / len(xpos) if len(xpos) != 0 else 0
+        ymean = sum(ypos) / len(ypos) if len(ypos) != 0 else 0
+        xdiff = [x - xmean for x in xpos]
+        ydiff = [y - ymean for y in ypos]
+        cor = np.sum([xdiff[i] * ydiff[i] for i in range(len(xdiff))]) / np.sqrt(np.sum([x ** 2 for x in xdiff]) * np.sum([y ** 2 for y in ydiff]))
         if np.isnan(cor):
             cor = 0
         
@@ -271,9 +273,11 @@ def twog_freq_corr(txt, table):
         # compute correlation
         xpos = [x[1] for x in reference_rank]
         ypos = [y[1] for y in sample_rank]
-        xmean = sum(xpos) / len(xpos)
-        ymean = sum(ypos) / len(ypos)
-        cor = np.sum((xpos - xmean) * (ypos - ymean)) / np.sqrt(np.sum((xpos - xmean) ** 2) * np.sum((ypos - ymean) ** 2))
+        xmean = sum(xpos) / len(xpos) if len(xpos) != 0 else 0
+        ymean = sum(ypos) / len(ypos) if len(ypos) != 0 else 0
+        xdiff = [x - xmean for x in xpos]
+        ydiff = [y - ymean for y in ypos]
+        cor = np.sum([xdiff[i] * ydiff[i] for i in range(len(xdiff))]) / np.sqrt(np.sum([x ** 2 for x in xdiff]) * np.sum([y ** 2 for y in ydiff]))
         if np.isnan(cor):
             cor = 0
         
