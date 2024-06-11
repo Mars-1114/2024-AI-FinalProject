@@ -13,8 +13,9 @@ def avg_word_len(txt):
     words = re.findall(r'\b\w+\b', txt)
     if not words:
         return 0
-    total_length = sum(len(word) for word in words)
-    avg_length = total_length / len(words)
+    long_words = [word for word in words if len(word) > 2]
+    total_length = sum(len(word) for word in long_words)
+    avg_length = total_length / len(long_words) if len(long_words) != 0 else 0
     return avg_length
 
 # 3-b | AVERAGE SENTENCE LENGTH

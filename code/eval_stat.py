@@ -1,5 +1,7 @@
 import numpy as np
+import math
 import csv
+import time
 
 IGNORE = "!?.。？！"
 
@@ -20,9 +22,15 @@ def resize(table):
             rank - <list> - the rank-adjusted frequency table
                 format: [element, rank] - <str, float>
     '''
-    rank = list()
-    for x in range(len(table)):
-        rank.append([table[x], np.log(x + 1) + 1])
+    global memo
+    rank = []
+    for n in range(len(table)):
+        if n < 50:
+            if memo[n] == 0:
+                memo[n] = math.log(n + 1) + 1
+            rank.append([table[n], memo[n]])
+        else:
+            rank.append([table[n], 4.9])
     return rank
 
 # 0-b | BUILD LETTER FREQUENCY TABLE
@@ -163,7 +171,7 @@ def char_freq_corr(txt, table):
     temp.sort(key = lambda x: x[1], reverse = True)
     freq = [x[0] for x in temp]
     
-    # compute correlation
+    # compute error
     for lang in table:
         reference_rank = resize(table[lang])
         sample_rank = resize(freq)
@@ -172,10 +180,10 @@ def char_freq_corr(txt, table):
         reference_rank = [x for x in reference_rank if x[0] in freq]
         
         # append letters only appear in the sampled table to the reference table
-        # the rank is set to negative (this is arbitrary and just to make it that the correlation would be close to 0 or negative)
+        # the rank is set to negative (this is arbitrary and just to make it that the error would be large)
         for x in freq:
             if x not in table[lang]:
-                reference_rank.append([x, np.log(0.1)])
+                reference_rank.append([x, math.log(0.1)])
         
         # rearrange the sample rank so that the letters align in both tables
         temp_rank = list()
@@ -186,9 +194,12 @@ def char_freq_corr(txt, table):
             temp_rank.append(sample_rank[index])
         sample_rank = temp_rank
         
-        # compute correlation
+        # compute error
         xpos = [x[1] for x in reference_rank]
         ypos = [y[1] for y in sample_rank]
+        err = sum([abs(xpos[i] - ypos[i]) for i in range(len(xpos))])
+        err = err / len(xpos)   # standardize
+        '''
         xmean = sum(xpos) / len(xpos) if len(xpos) != 0 else 0
         ymean = sum(ypos) / len(ypos) if len(ypos) != 0 else 0
         xdiff = [x - xmean for x in xpos]
@@ -196,13 +207,13 @@ def char_freq_corr(txt, table):
         cor = np.sum([xdiff[i] * ydiff[i] for i in range(len(xdiff))]) / np.sqrt(np.sum([x ** 2 for x in xdiff]) * np.sum([y ** 2 for y in ydiff]))
         if np.isnan(cor):
             cor = 0
+        '''
         
         # store in evaluation
-        eval_dict[lang] = cor
+        eval_dict[lang] = err
         
         #if lang == 'zh':
         #    print(reference_rank)
-    
     return eval_dict
 
 # 2-b | 2-GRAM FREQUENCY CORRELATION
@@ -259,7 +270,7 @@ def twog_freq_corr(txt, table):
         # the rank is set to negative (this is arbitrary and just to make it that the correlation would be close to 0 or negative)
         for x in freq:
             if x not in table[lang]:
-                reference_rank.append([x, np.log(0.1)])
+                reference_rank.append([x, math.log(0.1)])
         
         # rearrange the sample rank so that the 2-grams align in both tables
         temp_rank = list()
@@ -270,9 +281,12 @@ def twog_freq_corr(txt, table):
             temp_rank.append(sample_rank[index])
         sample_rank = temp_rank
         
-        # compute correlation
+        # compute error
         xpos = [x[1] for x in reference_rank]
         ypos = [y[1] for y in sample_rank]
+        err = sum([abs(xpos[i] - ypos[i]) for i in range(len(xpos))])
+        err = err / len(xpos) if len(xpos) != 0 else 0   # standardize
+        '''
         xmean = sum(xpos) / len(xpos) if len(xpos) != 0 else 0
         ymean = sum(ypos) / len(ypos) if len(ypos) != 0 else 0
         xdiff = [x - xmean for x in xpos]
@@ -280,9 +294,10 @@ def twog_freq_corr(txt, table):
         cor = np.sum([xdiff[i] * ydiff[i] for i in range(len(xdiff))]) / np.sqrt(np.sum([x ** 2 for x in xdiff]) * np.sum([y ** 2 for y in ydiff]))
         if np.isnan(cor):
             cor = 0
+        '''
         
         # store in evaluation
-        eval_dict[lang] = cor
+        eval_dict[lang] = err
     
     return eval_dict
 
