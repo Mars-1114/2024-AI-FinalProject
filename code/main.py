@@ -352,9 +352,9 @@ def main(new_split = False, remodel = True, scoring = True):
             this function does not return anything
     '''
     clfs = [QuadraticDiscriminantAnalysis, DecisionTreeClassifier, LinearSVC]
-    features = list(range(61))
+    features = list(range(20)) + list(range(60, 62))
     size = 10
-    tb = True
+    tb = False
     
     if new_split:
         print("Splitting test-train set...")
@@ -411,4 +411,4 @@ def main(new_split = False, remodel = True, scoring = True):
             
 
 #main(new_split = True)
-main(remodel=False)
+main()

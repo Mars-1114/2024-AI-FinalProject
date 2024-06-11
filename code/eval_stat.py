@@ -198,7 +198,7 @@ def char_freq_corr(txt, table):
         xpos = [x[1] for x in reference_rank]
         ypos = [y[1] for y in sample_rank]
         err = sum([abs(xpos[i] - ypos[i]) for i in range(len(xpos))])
-        err = err / len(xpos)   # standardize
+        err = err / len(xpos) if len(xpos) != 0 else 0    # standardize
         '''
         xmean = sum(xpos) / len(xpos) if len(xpos) != 0 else 0
         ymean = sum(ypos) / len(ypos) if len(ypos) != 0 else 0
